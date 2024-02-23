@@ -7,6 +7,7 @@ import trimesh
 
 from SMPLfitter.src.surfaceem import surface_EM_depth
 from SMPLfitter.src.utils import farthest_point_sample
+from SMPLfitter.src.smpl_torch import SMPL
 
 
 class SMPLfitter:
@@ -31,8 +32,9 @@ class SMPLfitter:
             print('Wrong gender parameter, "male" or "female" accepted.')
 
         # Initialize SMPL model
-        self.smpl_params_path = "./SMPLfitter/smpl_models/"
-        self.smplmodel = smplx.create(self.smpl_params_path, model_type="smpl", gender=self.smpl_gender, ext="pkl").to(self.device)
+        self.smpl_params_path = "./SMPLfitter/smpl_models/smpl/"
+        self.smplmodel_custom = SMPL(self.smpl_params_path + f"{self.smpl_gender}_model.pkl", self.device)
+        self.smplmodel = smplx.create("./SMPLfitter/smpl_models/", model_type="smpl", gender=self.smpl_gender, ext="pkl").to(self.device)
 
         # Downsample index
         SMPL_downsample_index_path = "./SMPLfitter/smpl_models/SMPL_downsample_index.pkl"
@@ -110,7 +112,7 @@ class SMPLfitter:
         front_points = front_points.unsqueeze(0).to(self.device)
         back_points = back_points.unsqueeze(0).to(self.device)
         depthEM = surface_EM_depth(
-            smplxmodel=self.smplmodel,
+            smpl_model=self.smplmodel_custom,
             batch_size=1,
             num_iters=50,
             selected_index=self.selected_index,
@@ -139,15 +141,13 @@ class SMPLfitter:
         Output:
         """
 
-        output = self.smplmodel(
-            betas=betas,
-            global_orient=pose[:, :3],
-            body_pose=pose[:, 3:],
-            transl=cam_trans,
-            return_verts=True,
+        vertices, faces = self.smplmodel_custom(
+            beta=betas.squeeze(),
+            pose=pose.squeeze(),
+            trans=cam_trans.squeeze(),
         )
-        scaled_outputVerts = torch.mul(output.vertices, scale).detach().cpu().numpy().squeeze()
-        mesh = trimesh.Trimesh(vertices=scaled_outputVerts, faces=self.smplmodel.faces, process=False)
+        scaled_vertices = torch.mul(vertices, scale).detach().cpu().numpy().squeeze()
+        mesh = trimesh.Trimesh(vertices=scaled_vertices, faces=faces, process=False)
         mesh.export(filename)
 
         print(f"Predicted SMPL saved to {filename}")

@@ -35,7 +35,7 @@ def body_fitting_loss_em(
     meshInd,
     probInput,
     pose_prior,
-    smpl_output,
+    vertices,
     modelfaces,
     sigma=100,
     pose_prior_weight=4.78,
@@ -67,7 +67,7 @@ def body_fitting_loss_em(
 
     chamfer_loss = (chamfer_weight**2) * get_chamfer_loss(meshVerts, modelVerts)[0] + ((chamfer_weight / 4.0) ** 2) * get_chamfer_loss(meshVerts, modelVerts)[1]
 
-    point2mesh_loss = (point2mesh_weight**2) * get_point2mesh_loss(meshVerts, smpl_output, 1, modelfaces)
+    point2mesh_loss = (point2mesh_weight**2) * get_point2mesh_loss(meshVerts, vertices, 1, modelfaces)
 
     total_loss = correspond_loss + pose_prior_loss + angle_prior_loss + shape_prior_loss + betas_preserve_loss + pose_preserve_loss + chamfer_loss + point2mesh_loss
 
@@ -79,13 +79,13 @@ def get_chamfer_loss(point_arr, output):
     return chamfer_x, chamfer_y
 
 
-def get_point2mesh_loss(point_arr, smploutput, batchSize, modelface):
+def get_point2mesh_loss(point_arr, vertices, batchSize, modelface):
     points_list = []
     verts_list = []
     faces_list = []
     for idx in range(batchSize):
         points_list.append(point_arr[idx].squeeze())
-        verts_list.append(smploutput.vertices[idx].squeeze())
+        verts_list.append(vertices[idx].squeeze())
         faces_list.append(modelface)
     meshes = Meshes(verts_list, faces_list)
     pcls = Pointclouds(points_list)
