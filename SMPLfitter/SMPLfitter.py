@@ -7,7 +7,7 @@ import trimesh
 
 from SMPLfitter.src.surfaceem import surface_EM_depth
 from SMPLfitter.src.utils import farthest_point_sample
-from SMPLfitter.src.smpl_torch import SMPL
+from SMPLfitter.src.smpl import SMPL
 
 
 class SMPLfitter:
@@ -33,8 +33,7 @@ class SMPLfitter:
 
         # Initialize SMPL model
         self.smpl_params_path = "./SMPLfitter/smpl_models/smpl/"
-        self.smplmodel_custom = SMPL(self.smpl_params_path + f"{self.smpl_gender}_model.pkl", self.device)
-        self.smplmodel = smplx.create("./SMPLfitter/smpl_models/", model_type="smpl", gender=self.smpl_gender, ext="pkl").to(self.device)
+        self.smpl_model = SMPL(model_path=self.smpl_params_path,gender=self.smpl_gender, device=self.device)
 
         # Downsample index
         SMPL_downsample_index_path = "./SMPLfitter/smpl_models/SMPL_downsample_index.pkl"
@@ -112,7 +111,7 @@ class SMPLfitter:
         front_points = front_points.unsqueeze(0).to(self.device)
         back_points = back_points.unsqueeze(0).to(self.device)
         depthEM = surface_EM_depth(
-            smpl_model=self.smplmodel_custom,
+            smpl_model=self.smpl_model,
             batch_size=1,
             num_iters=50,
             selected_index=self.selected_index,
@@ -141,13 +140,13 @@ class SMPLfitter:
         Output:
         """
 
-        vertices, faces = self.smplmodel_custom(
+        vertices = self.smpl_model(
             beta=betas.squeeze(),
             pose=pose.squeeze(),
             trans=cam_trans.squeeze(),
         )
         scaled_vertices = torch.mul(vertices, scale).detach().cpu().numpy().squeeze()
-        mesh = trimesh.Trimesh(vertices=scaled_vertices, faces=faces, process=False)
+        mesh = trimesh.Trimesh(vertices=scaled_vertices, faces=self.smpl_model.faces, process=False)
         mesh.export(filename)
 
         print(f"Predicted SMPL saved to {filename}")

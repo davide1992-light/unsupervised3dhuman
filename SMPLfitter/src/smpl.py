@@ -6,10 +6,10 @@ from torch.nn import Module
 
 
 class SMPL(Module):
-    def __init__(self, model_path, device=None):
+    def __init__(self, model_path, gender, device=None):
         super(SMPL, self).__init__()
 
-        with open(model_path, "rb") as f:
+        with open(model_path+f"{gender}_model.pkl", "rb") as f:
             params = pickle.load(f)
 
         self.J_regressor = torch.from_numpy(np.array(params["J_regressor"].todense())).type(torch.float32)
@@ -18,7 +18,7 @@ class SMPL(Module):
         self.v_template = torch.from_numpy(params["v_template"]).type(torch.float32)
         self.shapedirs = torch.from_numpy(params["shapedirs"]).type(torch.float32)
         self.kintree_table = params["kintree_table"]
-        self.f = params["f"]
+        self.faces = params["f"]
 
         self.device = device if device is not None else torch.device("cpu")
         for name in ["J_regressor", "weights", "posedirs", "v_template", "shapedirs"]:
@@ -186,4 +186,4 @@ class SMPL(Module):
         v = torch.matmul(T, torch.reshape(rest_shape_h, (-1, 4, 1)))
         v = torch.reshape(v, (-1, 4))[:, :3]
         vertices = v + torch.reshape(trans, (1, 3))
-        return vertices, self.f
+        return vertices

@@ -32,7 +32,7 @@ class surface_EM_depth:
         self.pose_prior = MaxMixturePrior(prior_folder="./SMPLfitter/smpl_models/", num_gaussians=8, dtype=torch.float32).to(device)
         # Load SMPL-X model
         self.smpl_model = smpl_model
-        # self.modelfaces = torch.from_numpy(np.int32(smplxmodel.faces)).to(device)
+        self.modelfaces = torch.from_numpy(np.int32(smpl_model.faces)).to(device)
         self.selected_index = selected_index
 
         # mu prob
@@ -113,27 +113,25 @@ class surface_EM_depth:
             def closure():
                 body_optimizer.zero_grad()
                 
-                vertices_front, faces = self.smpl_model(
+                smpl_output_vertices_front = self.smpl_model(
                     beta=betas.squeeze(),
                     pose=torch.cat([global_orient_front, body_pose_front], dim=-1).squeeze(),
                     trans=camera_translation_front.squeeze(),
                 )
 
-                faces = torch.from_numpy(np.int32(faces)).to(self.device)
-
-                vertices_back, _ = self.smpl_model(
+                smpl_output_vertices_back = self.smpl_model(
                     beta=betas.squeeze(),
                     pose=torch.cat([global_orient_back, body_pose_back], dim=-1).squeeze(),
                     trans=camera_translation_back.squeeze(),
                 )
-                vertices_front = vertices_front.unsqueeze(0)
-                vertices_back = vertices_back.unsqueeze(0)
 
-                modelVerts_front = vertices_front[:, self.selected_index]
-                scaled_modelVerts_front = torch.mul(modelVerts_front, scale)
+                smpl_output_vertices_front = smpl_output_vertices_front.unsqueeze(0)
+                scaled_smpl_output_vertices_front = torch.mul(smpl_output_vertices_front, scale)
+                scaled_modelVerts_front = scaled_smpl_output_vertices_front[:, self.selected_index]
 
-                modelVerts_back = vertices_back[:, self.selected_index]
-                scaled_modelVerts_back = torch.mul(modelVerts_back, scale)
+                smpl_output_vertices_back = smpl_output_vertices_back.unsqueeze(0)
+                scaled_smpl_output_vertices_back = torch.mul(smpl_output_vertices_front, scale)
+                scaled_modelVerts_back = scaled_smpl_output_vertices_back[:, self.selected_index]
 
                 sigma = (0.1**2) * (self.num_iters - i + 1) / self.num_iters
                 front_probInput, front_modelInd, front_meshInd = self.prob_cal(scaled_modelVerts_front, front_meshVerts, sigma=sigma, mu=self.mu)
@@ -153,8 +151,8 @@ class surface_EM_depth:
                     front_meshInd,
                     front_probInput,
                     self.pose_prior,
-                    vertices_front,
-                    faces,
+                    scaled_smpl_output_vertices_front,
+                    self.modelfaces,
                     pose_prior_weight=4.78 * 2.0,
                     shape_prior_weight=shape_prior_weight,
                     angle_prior_weight=15.2,
@@ -175,8 +173,8 @@ class surface_EM_depth:
                     back_meshInd,
                     back_probInput,
                     self.pose_prior,
-                    vertices_back,
-                    faces,
+                    scaled_smpl_output_vertices_back,
+                    self.modelfaces,
                     pose_prior_weight=4.78 * 2.0,
                     shape_prior_weight=shape_prior_weight,
                     angle_prior_weight=15.2,
